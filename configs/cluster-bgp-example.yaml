@@ -1,0 +1,92 @@
+# Kubernetes 集群配置示例 - BGP 模式
+#
+# 包含 BGP + Gateway API 的完整配置
+# 详见: README-BGP.md
+#
+# 部署:
+#   k8s-deployer cluster create -f my-cluster.yaml
+
+apiVersion: k8s-deployer/v1
+kind: Cluster
+
+metadata:
+  name: my-cluster
+
+spec:
+  version: v1.34.2
+  imageRepository: harbor.example.com/k8s
+  
+  # 网络配置
+  networking:
+    podSubnet: 10.60.0.0/16
+    serviceSubnet: 10.70.0.0/16
+  
+  # Hubble 可观测性
+  hubble:
+    enabled: true
+    metrics:
+      enabled: true
+    ui:
+      enabled: true
+      nodePort: 31234
+  
+  # LoadBalancer 配置
+  loadBalancer:
+    provider: cilium   # 使用 Cilium BGP
+    mode: dsr          # DSR 高性能模式
+  
+  # ========================================
+  # BGP 配置
+  # ========================================
+  # ⚠️ 重要: LoadBalancer IP 池必须使用独立网段
+  #
+  # 网络设计示例:
+  #   节点网络: 10.0.4.0/24
+  #   LB 网络:  10.0.6.0/24 (独立网段)
+  bgp:
+    enabled: true
+    localASN: 65001                    # 集群 AS 号
+    
+    peers:
+      - peerAddress: 10.0.4.250        # 交换机 BGP IP
+        peerASN: 65000                 # 交换机 AS 号
+    
+    # LoadBalancer IP 池
+    loadBalancerIPs:
+      - 10.0.6.1-10.0.6.254
+  
+  # Gateway API (L7 路由)
+  gatewayAPI:
+    enabled: true
+  
+  # Envoy (Gateway API 需要)
+  envoy:
+    enabled: true
+  
+  # 节点配置
+  nodes:
+    - role: master
+      ip: 10.0.4.109
+      hostname: master-01
+      ssh:
+        user: your-user
+        password: "your-password"
+        port: 22
+    
+    - role: worker
+      ip: 10.0.4.110
+      hostname: node-01
+      ssh:
+        user: your-user
+        password: "your-password"
+        port: 22
+    
+    - role: worker
+      ip: 10.0.4.111
+      hostname: gpu-node-01
+      gpu: true
+      ssh:
+        user: your-user
+        password: "your-password"
+        port: 22
+

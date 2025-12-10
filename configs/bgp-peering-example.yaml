@@ -1,0 +1,67 @@
+# BGP Peering 配置模板
+# 用于 AIGC 集群 BGP 场景
+
+# 使用方法：
+# 1. 修改下面的参数
+# 2. kubectl apply -f bgp-peering.yaml
+
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: aigc-bgp-policy
+  namespace: kube-system
+spec:
+  # 应用到所有节点
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/os: linux
+  
+  virtualRouters:
+  # 本地 BGP 配置
+  - localASN: 64512  # 修改为您的 AS 号
+    
+    # 宣告 Pod CIDR（让交换机知道 Pod 网段）
+    exportPodCIDR: true
+    
+    # 不宣告 LoadBalancer IP（因为使用 Traefik）
+    serviceSelector:
+      matchExpressions:
+      - key: io.cilium/no-announce
+        operator: NotIn
+        values: ['true']
+    
+    # BGP Peer 配置（您的交换机）
+    neighbors:
+    # Peer 1: 第一个交换机
+    - peerAddress: 192.168.1.254/32  # 修改为您的交换机 IP
+      peerASN: 64512                  # 修改为交换机的 AS 号
+      
+      # BGP 连接参数
+      eBGPMultihopTTL: 10            # 如果是 eBGP 多跳
+      connectRetryTimeSeconds: 120    # 连接重试时间
+      holdTimeSeconds: 90             # Hold 时间
+      keepAliveTimeSeconds: 30        # Keepalive 时间
+      
+      # 可选：如果交换机需要密码认证
+      # peerPassword:
+      #   secretKeyRef:
+      #     name: bgp-password
+      #     key: password
+    
+    # 如果有多个交换机（高可用），添加更多 peer
+    # - peerAddress: 192.168.1.253/32
+    #   peerASN: 64512
+    #   # ... 其他参数
+
+---
+# 可选：如果需要密码认证
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: bgp-password
+#   namespace: kube-system
+# type: Opaque
+# stringData:
+#   password: "your-bgp-password"
+
+

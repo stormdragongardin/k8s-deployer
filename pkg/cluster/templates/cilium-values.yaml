@@ -1,0 +1,148 @@
+# Cilium Helm Values
+# 专注于 CNI 网络和 Hubble 可观测性
+# LoadBalancer 功能由 MetalLB 提供
+
+# 镜像仓库配置（使用 override 避免镜像名拼接问题）
+image:
+  override: {{.ImageRegistry}}/cilium:v1.18.4
+  useDigest: false
+
+operator:
+  image:
+    override: {{.ImageRegistry}}/operator-generic:v1.18.4
+  replicas: 1
+
+# kube-proxy 替代模式（使用 eBPF）
+kubeProxyReplacement: true
+
+# Kubernetes API 服务器配置
+k8sServiceHost: {{.K8sServiceHost}}
+k8sServicePort: {{.K8sServicePort}}
+
+# IPAM 配置
+ipam:
+  mode: kubernetes
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - {{.PodSubnet}}
+
+# ========================================
+# Hubble 可观测性配置
+# ========================================
+hubble:
+  enabled: {{.HubbleEnabled}}
+  
+{{if .HubbleEnabled}}
+  # Hubble Relay（聚合器）
+  relay:
+    enabled: true
+    image:
+      override: {{.ImageRegistry}}/hubble-relay:v1.18.4
+  
+  # Hubble UI（可视化界面）
+  ui:
+    enabled: {{.HubbleUIEnabled}}
+{{if .HubbleUIEnabled}}
+    replicas: 1
+    image:
+      override: {{.ImageRegistry}}/hubble-ui:v0.13.3
+    backend:
+      image:
+        override: {{.ImageRegistry}}/hubble-ui-backend:v0.13.3
+{{if .HubbleUINodePort}}
+    service:
+      type: NodePort
+      nodePort: {{.HubbleUINodePort}}
+{{end}}
+{{end}}
+  
+  # Hubble 指标（用于 Prometheus 采集）
+{{if .HubbleMetricsEnabled}}
+  metrics:
+    enabled:
+      - dns:query;ignoreAAAA
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+{{end}}
+{{end}}
+
+# ========================================
+# 监控配置
+# ========================================
+# 暴露 Prometheus 指标端点
+prometheus:
+  enabled: true
+  port: 9090
+
+operator:
+  prometheus:
+    enabled: true
+
+# ========================================
+# 性能和安全优化
+# ========================================
+# eBPF 主机路由（性能优化）
+routing Mode: native
+autoDirectNodeRoutes: true
+ipv4NativeRoutingCIDR: {{.PodSubnet}}
+
+# BPF masquerading（替代 iptables）
+bpf:
+  masquerade: true
+{{if .BGPEnabled}}
+  lbExternalClusterIP: true  # BGP 模式需要
+{{end}}
+
+# 禁用 iptables（完全使用 eBPF）
+installNoConntrackIptablesRules: true
+
+# ========================================
+# BGP 控制平面（LoadBalancer）
+# ========================================
+{{if .BGPEnabled}}
+bgpControlPlane:
+  enabled: true
+
+# LoadBalancer 配置
+loadBalancer:
+  mode: {{.LoadBalancerMode}}  # dsr 或 snat
+  algorithm: maglev             # Maglev 一致性哈希
+  acceleration: native          # 原生加速
+{{else}}
+bgpControlPlane:
+  enabled: false
+{{end}}
+
+# ========================================
+# Gateway API 和 Envoy
+# ========================================
+{{if .GatewayAPIEnabled}}
+gatewayAPI:
+  enabled: true
+
+{{if .EnvoyEnabled}}
+envoy:
+  enabled: true
+{{else}}
+envoy:
+  enabled: false
+{{end}}
+{{else}}
+gatewayAPI:
+  enabled: false
+
+envoy:
+  enabled: false
+{{end}}
+
+# 资源限制
+resources:
+  limits:
+    cpu: 4000m
+    memory: 4Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi

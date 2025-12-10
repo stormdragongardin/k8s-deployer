@@ -1,0 +1,64 @@
+# Binaries
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Dependencies
+/vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User data
+~/.k8s-deployer/
+clusters.db
+*.log
+
+# ===========================================
+# 敏感配置 - 不要提交真实配置文件！
+# ===========================================
+# 实际使用的集群配置（包含密码）
+aigc-cluster.yaml
+*-cluster.yaml
+!configs/*-example.yaml
+
+# 私钥
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# kubeconfig
+kubeconfig
+*.kubeconfig
+
+# ===========================================
+# 离线安装包 - 用户需自行下载
+# ===========================================
+# 运行 ./scripts/download-all.sh 下载
+packages/containerd/
+packages/kubernetes/
+packages/helm/
+packages/gpu/
+packages/cilium/*.tgz
+packages/cilium/*.tar.gz
+!packages/cilium/cilium/
+

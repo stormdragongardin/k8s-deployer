@@ -1,0 +1,76 @@
+# Kubernetes 集群配置示例
+#
+# 复制此文件并修改为您的实际配置:
+#   cp configs/cluster-example.yaml my-cluster.yaml
+#   vim my-cluster.yaml
+#
+# 部署:
+#   k8s-deployer cluster create -f my-cluster.yaml
+
+apiVersion: k8s-deployer/v1
+kind: Cluster
+
+metadata:
+  name: my-cluster
+
+spec:
+  # Kubernetes 版本
+  version: v1.34.2
+  
+  # 镜像仓库地址
+  imageRepository: harbor.example.com/k8s
+  
+  # Harbor 认证（可选）
+  # harbor:
+  #   username: admin
+  #   password: your-password
+  #   insecure: true
+  
+  # 网络配置
+  networking:
+    podSubnet: 10.244.0.0/16
+    serviceSubnet: 10.96.0.0/12
+  
+  # 高可用配置（可选）
+  ha:
+    enabled: false
+    # vip: 192.168.1.100  # 启用时需要配置 VIP
+  
+  # Hubble 可观测性（可选）
+  hubble:
+    enabled: true
+    metrics:
+      enabled: true
+    ui:
+      enabled: true
+      nodePort: 31234
+  
+  # 节点配置
+  nodes:
+    # Master 节点
+    - role: master
+      ip: 192.168.1.11
+      hostname: master-01
+      ssh:
+        user: your-user          # SSH 用户名
+        password: "your-password" # SSH 密码（首次部署用）
+        port: 22
+    
+    # 普通 Worker 节点
+    - role: worker
+      ip: 192.168.1.21
+      hostname: node-01
+      ssh:
+        user: your-user
+        password: "your-password"
+        port: 22
+    
+    # GPU Worker 节点
+    - role: worker
+      ip: 192.168.1.31
+      hostname: gpu-node-01
+      gpu: true                   # 自动安装 NVIDIA 驱动
+      ssh:
+        user: your-user
+        password: "your-password"
+        port: 22

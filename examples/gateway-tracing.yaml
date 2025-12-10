@@ -1,0 +1,150 @@
+# ========================================
+# Gateway API with Enhanced Tracing
+# 增强的链路追踪配置
+# ========================================
+#
+# 功能特性:
+#   - 自动生成 X-Request-ID
+#   - 添加追踪 Headers
+#   - 支持分布式追踪
+#   - 日志关联
+#
+# 部署:
+#   kubectl apply -f examples/gateway-tracing.yaml
+#
+
+---
+# ========================================
+# Gateway with Tracing Headers
+# ========================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: tracing-gateway
+  namespace: default
+  annotations:
+    io.cilium/lb-ipam-ips: "10.0.6.1"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All
+
+---
+# ========================================
+# HTTPRoute with Response Headers
+# 添加自定义响应头用于调试
+# ========================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tracing-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: tracing-gateway
+    namespace: default
+  
+  hostnames:
+  - "test.example.com"
+  
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    
+    # 可以添加自定义 Header
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: X-Served-By
+          value: Cilium-Gateway
+        - name: X-Trace-Enabled
+          value: "true"
+    
+    backendRefs:
+    - name: echo-server
+      port: 80
+
+---
+# ========================================
+# 增强版 Echo Server (支持追踪)
+# ========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracing-echo-server
+  namespace: default
+  labels:
+    app: tracing-echo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tracing-echo
+  template:
+    metadata:
+      labels:
+        app: tracing-echo
+    spec:
+      containers:
+      - name: echo
+        image: ealen/echo-server:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: PORT
+          value: "80"
+        # 启用日志格式化
+        - name: LOGS_IGNORE_STATUS
+          value: "200"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracing-echo-server
+  namespace: default
+spec:
+  selector:
+    app: tracing-echo
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+---
+# ========================================
+# 示例：日志收集配置 (可选)
+# ========================================
+# 如果使用 Loki/Grafana，可以添加以下标签
+# 用于自动提取 X-Request-ID
+#
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: fluent-bit-config
+#   namespace: logging
+# data:
+#   parsers.conf: |
+#     [PARSER]
+#         Name   nginx
+#         Format regex
+#         Regex  ^(?<x_request_id>[^\s]+) - (?<remote>[^ ]*) - (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)
+#         Time_Key time
+#         Time_Format %d/%b/%Y:%H:%M:%S %z
+

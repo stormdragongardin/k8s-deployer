@@ -1,0 +1,42 @@
+# MetalLB BGP Configuration Template
+# This template is used to configure MetalLB in BGP mode
+
+---
+# IP Address Pool
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: {{.ClusterName}}-ip-pool
+  namespace: metallb-system
+spec:
+  addresses:
+{{range .LoadBalancerIPs}}
+  - {{.}}
+{{end}}
+
+---
+# BGP Advertisement
+apiVersion: metallb.io/v1beta1
+kind: BGPAdvertisement
+metadata:
+  name: {{.ClusterName}}-bgp-adv
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - {{.ClusterName}}-ip-pool
+
+{{range $index, $peer := .BGPPeers}}
+---
+# BGP Peer {{$index}}
+apiVersion: metallb.io/v1beta2
+kind: BGPPeer
+metadata:
+  name: {{$.ClusterName}}-peer-{{$index}}
+  namespace: metallb-system
+spec:
+  myASN: {{$.LocalASN}}
+  peerASN: {{$peer.PeerASN}}
+  peerAddress: {{$peer.PeerAddress}}
+{{end}}
+
+

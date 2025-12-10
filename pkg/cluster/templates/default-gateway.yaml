@@ -1,0 +1,35 @@
+# 默认 Gateway 配置
+# 使用固定 IP: 10.0.6.1
+# 由 k8s-deployer 自动部署
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: default-gateway
+  namespace: default
+  annotations:
+    # 指定固定的 LoadBalancer IP
+    io.cilium/lb-ipam-ips: "10.0.6.1"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  # HTTP 监听器
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All  # 允许所有 namespace 的路由
+  # HTTPS 监听器
+  - name: https
+    protocol: HTTPS
+    port: 443
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: default-gateway-cert
+
